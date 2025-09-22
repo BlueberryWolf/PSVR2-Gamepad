@@ -90,7 +90,6 @@ dotnet build -c Release
 * Games that use XInput rumble will vibrate your Sense controllers
 * Two controllers: Large motor -> left, Small motor -> right
 * Single controller: combines both channels and sends to that one
-* Automatically picks USB or Bluetooth depending on what's available
 
 ---
 
@@ -98,7 +97,7 @@ dotnet build -c Release
 
 
 * **No virtual controller?** Make sure ViGEm Bus Driver is installed and app is running
-* **No PSVR2 detected?** Pair via Bluetooth or connect USB, then try again
+* **No PSVR2 detected?** Pair via Bluetooth, then try again
 * **No rumble on Bluetooth?** Check connection and try a test app (Steam or XInput tester)
 * **Opening the app tries to open ms-gamebar** This is a windows feature, Game Bar is opened when an XInput device is detected. You can disable the gamebar entirely [here](https://github.com/AveYo/Gaming/blob/main/ms-gamebar-annoyance.bat)
 
