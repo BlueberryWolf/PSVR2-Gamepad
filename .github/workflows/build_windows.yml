@@ -30,7 +30,7 @@ jobs:
           powershell Compress-Archive -Path ./bin/Release/net9.0/* -DestinationPath ./PSVR2-Gamepad.zip
 
       - name: Upload build artifact
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v4
         with:
           name: release
           path: ./PSVR2-Gamepad.zip
