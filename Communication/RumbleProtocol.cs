@@ -4,7 +4,7 @@ namespace PSVR2Gamepad.Communication
 {
     public static class RumbleProtocol
     {
-        private static uint[] _crcTable;
+        private static uint[]? _crcTable;
 
         public static byte[] CreateBluetoothRumblePacket(byte strength, ref byte outSeq)
         {
@@ -65,7 +65,7 @@ namespace PSVR2Gamepad.Communication
             uint crc = 0xFFFFFFFFu;
 
             // Prefix bytes required by HID over BT transport: 0xA2, reportId
-            crc = (crc >> 8) ^ _crcTable[(crc ^ 0xA2) & 0xFF];
+            crc = (crc >> 8) ^ _crcTable![(crc ^ 0xA2) & 0xFF];
             crc = (crc >> 8) ^ _crcTable[(crc ^ reportId) & 0xFF];
 
             for (int i = 0; i < dataLen; i++)

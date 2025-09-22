@@ -14,8 +14,8 @@ namespace PSVR2Gamepad.Hardware
         public ReportParser.Side ControllerSide { get; }
         public HidDevice Device { get; }
 
-        private HidStream _stream;
-        private CancellationTokenSource _cts;
+        private HidStream? _stream;
+        private CancellationTokenSource? _cts;
         private bool _isBluetooth;
         private byte _outSeq = 1;
 
@@ -77,26 +77,26 @@ namespace PSVR2Gamepad.Hardware
             {
                 var feat = new byte[64];
                 feat[0] = PSVR2Constants.FeatureReportIdEnable;
-                _stream.GetFeature(feat);
+                _stream?.GetFeature(feat);
             }
             catch { /* Non-fatal */ }
         }
 
-        public void StartReading(Action<PSVR2Report> onReport, Action<Exception> onError = null)
+        public void StartReading(Action<PSVR2Report> onReport, Action<Exception> onError)
         {
             if (_stream == null) throw new InvalidOperationException("Open the device first.");
 
-            Task.Run(() => ReadLoop(onReport, onError), _cts.Token);
+            Task.Run(() => ReadLoop(onReport, onError ?? (_ => { })), _cts?.Token ?? CancellationToken.None);
         }
 
         private void ReadLoop(Action<PSVR2Report> onReport, Action<Exception> onError)
         {
             var buffer = new byte[128];
-            while (!_cts.IsCancellationRequested)
+            while (_cts?.IsCancellationRequested != true)
             {
                 try
                 {
-                    int length = _stream.Read(buffer, 0, buffer.Length);
+                    int length = _stream?.Read(buffer, 0, buffer.Length) ?? 0;
                     if (length <= 0 || buffer[0] != PSVR2Constants.ReportId) continue;
 
                     var report = ReportParser.ParseReport(buffer, length, ControllerSide);

@@ -14,10 +14,10 @@ namespace PSVR2Gamepad.Bridge
         private readonly IXbox360Controller _x360;
         private readonly object _lock = new object();
 
-        private PSVR2Report _left;
-        private PSVR2Report _right;
-        private PSVR2Controller _leftCtlRef;
-        private PSVR2Controller _rightCtlRef;
+        private PSVR2Report? _left;
+        private PSVR2Report? _right;
+        private PSVR2Controller? _leftCtlRef;
+        private PSVR2Controller? _rightCtlRef;
 
         public ViGEmBridge()
         {
@@ -63,7 +63,7 @@ namespace PSVR2Gamepad.Bridge
             lock (_lock)
             {
                 _left = report;
-                Xbox360Mapping.ApplyReport(_x360, _left, _right);
+                Xbox360Mapping.ApplyReport(_x360, _left!, _right ?? new PSVR2Report());
             }
         }
 
@@ -72,7 +72,7 @@ namespace PSVR2Gamepad.Bridge
             lock (_lock)
             {
                 _right = report;
-                Xbox360Mapping.ApplyReport(_x360, _left, _right);
+                Xbox360Mapping.ApplyReport(_x360, _left ?? new PSVR2Report(), _right!);
             }
         }
 

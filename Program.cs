@@ -29,11 +29,18 @@ namespace PSVR2Gamepad
                 return;
             }
 
-            using var leftController = leftDevice != null ? new PSVR2Controller(ReportParser.Side.Left, leftDevice) : null;
-            using var rightController = rightDevice != null ? new PSVR2Controller(ReportParser.Side.Right, rightDevice) : null;
+            using PSVR2Controller? leftController = leftDevice != null ? new PSVR2Controller(ReportParser.Side.Left, leftDevice) : null;
+            using PSVR2Controller? rightController = rightDevice != null ? new PSVR2Controller(ReportParser.Side.Right, rightDevice) : null;
 
-            InitializeController(leftController, "L", display, r => bridge.UpdateLeft(r));
-            InitializeController(rightController, "R", display, r => bridge.UpdateRight(r));
+            if (leftController != null)
+            {
+                InitializeController(leftController, "L", display, r => bridge.UpdateLeft(r));
+            }
+
+            if (rightController != null)
+            {
+                InitializeController(rightController, "R", display, r => bridge.UpdateRight(r));
+            }
 
             if (leftController != null) bridge.AttachLeftController(leftController);
             if (rightController != null) bridge.AttachRightController(rightController);
