@@ -15,10 +15,11 @@ Think of it as a bridge so your PSVR2 controllers can work in pretty much any ga
 
 * Windows 10 or 11
 * [ViGEm Bus Driver](https://github.com/nefarius/ViGEmBus/releases/latest) installed
-* PSVR2 controllers (USB or Bluetooth)
+* PSVR2 controllers (**Bluetooth ONLY**)
 * .NET 9 SDK
 
 > ViGEm must be installed for the virtual Xbox 360 controller to work.
+> USB support is not yet implemented, only Bluetooth connections are supported.
 
 ---
 
@@ -95,6 +96,7 @@ dotnet build -c Release
 
 ## Troubleshooting
 
+
 * **No virtual controller?** Make sure ViGEm Bus Driver is installed and app is running
 * **No PSVR2 detected?** Pair via Bluetooth or connect USB, then try again
 * **No rumble on Bluetooth?** Check connection and try a test app (Steam or XInput tester)
@@ -144,6 +146,7 @@ dotnet build -c Release
 * Configurable rumble mirroring and scaling
 * Controller UI for visualization and configuration  
 * Advanced haptics
+* Fix USB Support 
 
 ---
 
