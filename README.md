@@ -61,8 +61,8 @@ dotnet build -c Release
 
 ## Button / Stick Mapping (to Xbox 360/XInput)
 
-* **Sticks (LS/RS)**: left/right, Y inverted
-* **Triggers (LT/RT)**: trigger pull percent
+* **Sticks (LS/RS)**: left/right
+* **Triggers (LT/RT)**: trigger pull
 * **Grips (LB/RB)**: left/right grip click
 * **Face buttons (A/B/X/Y)**: mapped around Cross, Circle, Square, Triangle
 * **Back**: left Option
