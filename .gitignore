@@ -1,0 +1,40 @@
+# Visual Studio / .NET / VS Code
+.vs/
+.vscode/
+bin/
+obj/
+TestResults/
+
+# Build artifacts
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+*.db-wal
+*.db-shm
+
+# NuGet
+*.nupkg
+*.snupkg
+packages/
+
+# User-specific files
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Logs
+logs/
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Rider/JetBrains (optional)
+.idea/
+*.iml
+
+# Misc
+*.cache
