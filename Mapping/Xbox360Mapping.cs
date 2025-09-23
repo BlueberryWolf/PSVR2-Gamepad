@@ -1,4 +1,3 @@
-using System;
 using Nefarius.ViGEm.Client.Targets;
 using Nefarius.ViGEm.Client.Targets.Xbox360;
 using PSVR2Gamepad.Models;

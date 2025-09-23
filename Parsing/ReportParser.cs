@@ -1,4 +1,3 @@
-using System;
 using System.Buffers.Binary;
 using PSVR2Gamepad.Models;
 
@@ -50,7 +49,6 @@ namespace PSVR2Gamepad.Parsing
             report.Counters = ParseCounters(buffer, offset);
             report.Power = ParsePower(buffer, offset);
 
-            report.RawHex = BitConverter.ToString(buffer, 0, length).Replace("-", " ").ToLowerInvariant();
             return report;
         }
 

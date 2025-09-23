@@ -1,0 +1,11 @@
+{
+  "ReadTimeoutMs": 50,
+  "WriteTimeoutMs": 25,
+  "WatchdogStaleMs": 1500,
+  "ReopenBackoffStartMs": 150,
+  "ReopenBackoffMaxMs": 3000,
+  "ConsoleMinIntervalMs": 100,
+  "ReaderThreadPriority": "AboveNormal",
+  "FakeDpadEnabled": false,
+  "FakeDpadThreshold": 0.5
+}

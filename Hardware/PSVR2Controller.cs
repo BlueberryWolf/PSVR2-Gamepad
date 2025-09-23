@@ -1,6 +1,3 @@
-using System;
-using System.Threading;
-using System.Threading.Tasks;
 using HidSharp;
 using PSVR2Gamepad.Constants;
 using PSVR2Gamepad.Models;
@@ -31,7 +28,7 @@ namespace PSVR2Gamepad.Hardware
 
             try
             {
-                if (_stream.WriteTimeout == 0) _stream.WriteTimeout = 50;
+                if (_stream.WriteTimeout == 0) _stream.WriteTimeout = Tuning.WriteTimeoutMs;
 
                 DetectConnectionTypeIfNeeded();
 
@@ -41,7 +38,11 @@ namespace PSVR2Gamepad.Hardware
 
                 _stream.Write(packet);
             }
-            catch { /* ignore write failures */ }
+            catch (Exception ex)
+            {
+                // Log write failures for troubleshooting
+                System.Diagnostics.Debug.WriteLine($"SendRumble error: {ex.Message}");
+            }
         }
 
         private void DetectConnectionTypeIfNeeded()
@@ -60,8 +61,8 @@ namespace PSVR2Gamepad.Hardware
         {
             if (!Device.TryOpen(out _stream)) return false;
 
-            _stream.ReadTimeout = Timeout.Infinite;
-            _stream.WriteTimeout = 50;
+            _stream.ReadTimeout = Tuning.ReadTimeoutMs;
+            _stream.WriteTimeout = Tuning.WriteTimeoutMs;
             DetectConnectionTypeIfNeeded();
 
             // Initialize with feature report
@@ -79,26 +80,55 @@ namespace PSVR2Gamepad.Hardware
                 feat[0] = PSVR2Constants.FeatureReportIdEnable;
                 _stream?.GetFeature(feat);
             }
-            catch { /* Non-fatal */ }
+            catch (Exception ex)
+            {
+                // Log non-fatal feature report errors
+                System.Diagnostics.Debug.WriteLine($"TryInitializeDevice error: {ex.Message}");
+            }
         }
 
         public void StartReading(Action<PSVR2Report> onReport, Action<Exception> onError)
         {
             if (_stream == null) throw new InvalidOperationException("Open the device first.");
 
-            Task.Run(() => ReadLoop(onReport, onError ?? (_ => { })), _cts?.Token ?? CancellationToken.None);
+            var token = _cts?.Token ?? CancellationToken.None;
+            Task.Run(() =>
+            {
+                try { Thread.CurrentThread.Priority = Tuning.ReaderThreadPriority; } catch { }
+                ReadLoop(onReport, onError ?? (_ => { }), token);
+            }, token);
         }
 
-        private void ReadLoop(Action<PSVR2Report> onReport, Action<Exception> onError)
+        private void ReadLoop(Action<PSVR2Report> onReport, Action<Exception> onError, CancellationToken token)
         {
             var buffer = new byte[128];
-            while (_cts?.IsCancellationRequested != true)
+            var lastDataUtc = DateTime.UtcNow;
+
+            while (!token.IsCancellationRequested)
             {
                 try
                 {
                     int length = _stream?.Read(buffer, 0, buffer.Length) ?? 0;
-                    if (length <= 0 || buffer[0] != PSVR2Constants.ReportId) continue;
 
+                    if (length <= 0)
+                    {
+                        // Timeout or no data
+                        if ((DateTime.UtcNow - lastDataUtc).TotalMilliseconds > Tuning.WatchdogStaleMs)
+                        {
+                            // Treat as stale link; try reopen
+                            if (!TryReopenWithBackoff(token)) break;
+                            lastDataUtc = DateTime.UtcNow;
+                        }
+                        continue;
+                    }
+
+                    if (buffer[0] != PSVR2Constants.ReportId)
+                    {
+                        // Ignore unrelated report IDs
+                        continue;
+                    }
+
+                    lastDataUtc = DateTime.UtcNow;
                     var report = ReportParser.ParseReport(buffer, length, ControllerSide);
                     onReport?.Invoke(report);
                 }
@@ -106,23 +136,71 @@ namespace PSVR2Gamepad.Hardware
                 {
                     break;
                 }
+                catch (TimeoutException)
+                {
+                    // Non-fatal: check watchdog for stale
+                    if ((DateTime.UtcNow - lastDataUtc).TotalMilliseconds > Tuning.WatchdogStaleMs)
+                    {
+                        if (!TryReopenWithBackoff(token)) break;
+                        lastDataUtc = DateTime.UtcNow;
+                    }
+                    continue;
+                }
                 catch (Exception ex)
                 {
                     onError?.Invoke(ex);
-                    Thread.Sleep(10);
+
+                    if (token.IsCancellationRequested) break;
+                    if (!TryReopenWithBackoff(token))
+                    {
+                        // Couldn't reopen (likely canceled); stop loop
+                        break;
+                    }
+                    lastDataUtc = DateTime.UtcNow;
                 }
             }
+        }
+
+        private bool TryReopenWithBackoff(CancellationToken token)
+        {
+            try { _stream?.Dispose(); } catch { }
+
+            int delayMs = Tuning.ReopenBackoffStartMs;
+            int maxDelayMs = Tuning.ReopenBackoffMaxMs;
+
+            while (!token.IsCancellationRequested)
+            {
+                try
+                {
+                    if (Device.TryOpen(out _stream))
+                    {
+                        _stream.ReadTimeout = 100;
+                        _stream.WriteTimeout = 50;
+                        DetectConnectionTypeIfNeeded();
+                        TryInitializeDevice();
+                        return true;
+                    }
+                }
+                catch
+                {
+                    // Ignore and retry
+                }
+
+                Thread.Sleep(delayMs);
+                delayMs = Math.Min(delayMs * 2, maxDelayMs);
+            }
+            return false;
         }
 
         public void Stop()
         {
             try { _cts?.Cancel(); } catch { }
+            try { _stream?.Dispose(); } catch { } // ensure any pending Read() is interrupted
         }
 
         public void Dispose()
         {
             try { Stop(); } catch { }
-            try { _stream?.Dispose(); } catch { }
             try { _cts?.Dispose(); } catch { }
         }
     }

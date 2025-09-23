@@ -1,5 +1,3 @@
-using System;
-
 namespace PSVR2Gamepad.Models
 {
     public class PSVR2Report
@@ -19,6 +17,5 @@ namespace PSVR2Gamepad.Models
         public (short x, short y, short z) Accel { get; set; }
         public (bool pluggedIn, bool charging, bool charged, int batteryPercent) Power { get; set; }
         public (uint powerOn, uint timestamp1, uint timestamp2) Counters { get; set; }
-        public string RawHex { get; set; } = string.Empty;
     }
 }

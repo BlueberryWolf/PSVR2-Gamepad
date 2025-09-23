@@ -85,7 +85,7 @@ dotnet build -c Release
 * **Default**: off at startup
 * **Env var tweaks**:
 
-  * `PSVR2_FAKE_DPAD_THRESHOLD` (0–1, default 0.5)
+  * `PSVR2_FAKE_DPAD_THRESHOLD` (0-1, default 0.5)
 * Only works if the left controller is connected
 
 ---

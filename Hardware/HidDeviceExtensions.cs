@@ -1,6 +1,4 @@
-using System.Linq;
 using HidSharp;
-using PSVR2Gamepad.Constants;
 
 namespace PSVR2Gamepad.Hardware
 {

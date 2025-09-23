@@ -1,5 +1,3 @@
-using System;
-using System.Threading;
 using PSVR2Gamepad.Models;
 
 namespace PSVR2Gamepad.UI
@@ -7,7 +5,7 @@ namespace PSVR2Gamepad.UI
     public class ConsoleDisplay
     {
         private readonly object _consoleLock = new object();
-        private readonly TimeSpan _minInterval = TimeSpan.FromMilliseconds(100);
+        private readonly TimeSpan _minInterval = TimeSpan.FromMilliseconds(Constants.Tuning.ConsoleMinIntervalMs);
 
         private int _lineL = -1;
         private int _lineR = -1;

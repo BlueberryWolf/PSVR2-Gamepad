@@ -1,4 +1,3 @@
-using System;
 using Nefarius.ViGEm.Client;
 using Nefarius.ViGEm.Client.Targets;
 using Nefarius.ViGEm.Client.Targets.Xbox360;
@@ -57,6 +56,8 @@ namespace PSVR2Gamepad.Bridge
 
         public void AttachLeftController(PSVR2Controller controller) => _leftCtlRef = controller;
         public void AttachRightController(PSVR2Controller controller) => _rightCtlRef = controller;
+        public void DetachLeftController() => _leftCtlRef = null;
+        public void DetachRightController() => _rightCtlRef = null;
 
         public void UpdateLeft(PSVR2Report report)
         {

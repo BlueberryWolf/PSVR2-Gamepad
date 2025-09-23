@@ -1,5 +1,3 @@
-using System;
-
 namespace PSVR2Gamepad.Features
 {
     /// <summary>

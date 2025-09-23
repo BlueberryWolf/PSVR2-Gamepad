@@ -8,20 +8,11 @@ namespace PSVR2Gamepad.Features
         // Stick magnitude threshold to register a D-Pad direction
         public static float Threshold { get; private set; } = 0.5f;
 
-        static FakeDpadConfig()
+        // Set threshold from config
+        public static void SetThreshold(float value)
         {
-            try
-            {
-                var thr = System.Environment.GetEnvironmentVariable("PSVR2_FAKE_DPAD_THRESHOLD");
-                if (!string.IsNullOrEmpty(thr) && float.TryParse(thr, out var t) && t > 0f && t <= 1f)
-                {
-                    Threshold = t;
-                }
-            }
-            catch
-            {
-                Threshold = 0.5f;
-            }
+            if (value > 0f && value <= 1f)
+                Threshold = value;
         }
 
         // Runtime control
