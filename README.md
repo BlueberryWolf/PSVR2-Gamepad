@@ -11,6 +11,11 @@ Think of it as a bridge so your PSVR2 controllers can work in pretty much any ga
 
 ---
 
+## But why?  
+Honestly, the skate early access dropped, and I didn't own a controller to play it with. So, I made this and here we are lol
+
+---
+
 ## Requirements
 
 * Windows 10 or 11
