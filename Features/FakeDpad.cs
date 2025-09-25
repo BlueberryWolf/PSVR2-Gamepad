@@ -9,55 +9,44 @@ namespace PSVR2Gamepad.Features
     public static class FakeDpad
     {
         // D-Pad tuning (higher deadzone reduces noise; higher dominance prefers single-axis over diagonals)
-        private const float DpadAxisDeadzone = 0.25f;
-        private const float DpadDominanceBias = 0.10f;
+        private const float AxisDeadzone = 0.25f;
+        private const float DominanceBias = 0.10f;
 
         /// <summary>
-        /// Compute D-Pad booleans from stick using dominant-axis with optional diagonals.
+        /// Compute D-Pad booleans from stick using dominant-axis.
         /// </summary>
         public static void ComputeDpadFromStick(float x, float y, out bool up, out bool down, out bool left, out bool right)
         {
             up = down = left = right = false;
 
-            float mag = (float)Math.Sqrt((x * x) + (y * y));
-            if (mag < FakeDpadConfig.Threshold)
+            if (Math.Sqrt((x * x) + (y * y)) < FakeDpadConfig.Threshold)
                 return;
 
             float ax = Math.Abs(x);
             float ay = Math.Abs(y);
 
-            // If both axes are tiny, do nothing
-            if (ax < DpadAxisDeadzone && ay < DpadAxisDeadzone)
-                return;
+            bool horizDominant = (ax - ay) > DominanceBias;
+            bool vertDominant = (ay - ax) > DominanceBias;
 
-            bool horizDominant = (ax - ay) > DpadDominanceBias;
-            bool vertDominant = (ay - ax) > DpadDominanceBias;
-
-            if (horizDominant)
+            // Horizontal movement (dominant or diagonal)
+            if (ax > AxisDeadzone)
             {
-                // Horizontal only
-                left = x < -DpadAxisDeadzone;
-                right = x > DpadAxisDeadzone;
-                return;
-            }
-            if (vertDominant)
-            {
-                // Vertical only (note: y>0 is up)
-                up = y > DpadAxisDeadzone;
-                down = y < -DpadAxisDeadzone;
-                return;
+                if (!vertDominant) // Not vertically dominant, so allow horizontal
+                {
+                    left = x < 0;
+                    right = x > 0;
+                }
             }
 
-            // Near the diagonal: allow both if each axis crosses the deadzone
-            if (ax >= DpadAxisDeadzone)
+            // Vertical movement (dominant or diagonal)
+            if (ay > AxisDeadzone)
             {
-                left = x < -DpadAxisDeadzone;
-                right = x > DpadAxisDeadzone;
-            }
-            if (ay >= DpadAxisDeadzone)
-            {
-                up = y > DpadAxisDeadzone;
-                down = y < -DpadAxisDeadzone;
+                if (!horizDominant) // Not horizontally dominant, so allow vertical
+                {
+                    // note: y>0 is up
+                    up = y > 0;
+                    down = y < 0;
+                }
             }
         }
     }

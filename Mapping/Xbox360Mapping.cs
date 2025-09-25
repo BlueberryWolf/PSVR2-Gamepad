@@ -28,18 +28,18 @@ namespace PSVR2Gamepad.Mapping
             // Sticks
             if (left != null)
             {
-                controller.SetAxisValue(Xbox360Axis.LeftThumbX, ToShortAxis(left.Stick.x));
-                controller.SetAxisValue(Xbox360Axis.LeftThumbY, ToShortAxis(-left.Stick.y)); // invert Y for Xbox convention
+                controller.SetAxisValue(Xbox360Axis.LeftThumbX, ToShortAxis(left.Stick.X));
+                controller.SetAxisValue(Xbox360Axis.LeftThumbY, ToShortAxis(left.Stick.Y));
             }
             if (right != null)
             {
-                controller.SetAxisValue(Xbox360Axis.RightThumbX, ToShortAxis(right.Stick.x));
-                controller.SetAxisValue(Xbox360Axis.RightThumbY, ToShortAxis(-right.Stick.y)); // invert Y for Xbox convention
+                controller.SetAxisValue(Xbox360Axis.RightThumbX, ToShortAxis(right.Stick.X));
+                controller.SetAxisValue(Xbox360Axis.RightThumbY, ToShortAxis(right.Stick.Y));
             }
 
             // Triggers
-            controller.SetSliderValue(Xbox360Slider.LeftTrigger, left != null ? ToTrigger(left.Trigger.pullPercent) : (byte)0);
-            controller.SetSliderValue(Xbox360Slider.RightTrigger, right != null ? ToTrigger(right.Trigger.pullPercent) : (byte)0);
+            controller.SetSliderValue(Xbox360Slider.LeftTrigger, left != null ? ToTrigger(left.Trigger.PullPercent) : (byte)0);
+            controller.SetSliderValue(Xbox360Slider.RightTrigger, right != null ? ToTrigger(right.Trigger.PullPercent) : (byte)0);
         }
 
         /// <summary>
@@ -48,7 +48,7 @@ namespace PSVR2Gamepad.Mapping
         private static void ApplyButtons(IXbox360Controller controller, PSVR2Report left, PSVR2Report right)
         {
             // Toggle Fake D-Pad with LEFT menu button (edge-triggered)
-            bool leftMenuDown = left?.Menu == true;
+            bool leftMenuDown = left?.Menu.Click == true;
             if (leftMenuDown && !_prevLeftMenuDown)
             {
                 FakeDpadConfig.Toggle();
@@ -56,32 +56,31 @@ namespace PSVR2Gamepad.Mapping
             _prevLeftMenuDown = leftMenuDown;
 
             // Shoulders
-            controller.SetButtonState(Xbox360Button.LeftShoulder, left?.Grip.click == true);
-            controller.SetButtonState(Xbox360Button.RightShoulder, right?.Grip.click == true);
+            controller.SetButtonState(Xbox360Button.LeftShoulder, left?.Grip.Click == true);
+            controller.SetButtonState(Xbox360Button.RightShoulder, right?.Grip.Click == true);
 
             // ABXY: Cross, Circle, Square, Triangle
-            controller.SetButtonState(Xbox360Button.A, right?.Cross.click == true);
-            controller.SetButtonState(Xbox360Button.B, right?.Circle.click == true);
-            controller.SetButtonState(Xbox360Button.X, left?.Square.click == true);
-            controller.SetButtonState(Xbox360Button.Y, left?.Triangle.click == true);
+            controller.SetButtonState(Xbox360Button.A, right?.Cross.Click == true);
+            controller.SetButtonState(Xbox360Button.B, right?.Circle.Click == true);
+            controller.SetButtonState(Xbox360Button.X, left?.Square.Click == true);
+            controller.SetButtonState(Xbox360Button.Y, left?.Triangle.Click == true);
 
-            // Back / Start
-            controller.SetButtonState(Xbox360Button.Back, left?.Option == true);
-            controller.SetButtonState(Xbox360Button.Start, (right?.Option == true));
+            // Back / Start 
+            controller.SetButtonState(Xbox360Button.Back, left?.Option.Click == true);
+            controller.SetButtonState(Xbox360Button.Start, (right?.Option.Click == true));
 
             // Guide from RIGHT menu
-            controller.SetButtonState(Xbox360Button.Guide, (right?.Menu == true));
+            controller.SetButtonState(Xbox360Button.Guide, (right?.Menu.Click == true));
 
             // Stick buttons
-            controller.SetButtonState(Xbox360Button.LeftThumb, left?.StickBtn.click == true);
-            controller.SetButtonState(Xbox360Button.RightThumb, right?.StickBtn.click == true);
+            controller.SetButtonState(Xbox360Button.LeftThumb, left?.Stick.Click == true);
+            controller.SetButtonState(Xbox360Button.RightThumb, right?.Stick.Click == true);
 
             // Fake D-Pad: map left stick to D-Pad when enabled
             if (FakeDpadConfig.Enabled && left != null)
             {
                 bool up, down, leftDir, rightDir;
-                // Invert Y to match analog axis convention (up should be positive)
-                FakeDpad.ComputeDpadFromStick(left.Stick.x, -left.Stick.y, out up, out down, out leftDir, out rightDir);
+                FakeDpad.ComputeDpadFromStick(left.Stick.X, left.Stick.Y, out up, out down, out leftDir, out rightDir);
 
                 controller.SetButtonState(Xbox360Button.Up, up);
                 controller.SetButtonState(Xbox360Button.Down, down);
@@ -98,18 +97,16 @@ namespace PSVR2Gamepad.Mapping
             }
         }
 
-        private static short ToShortAxis(float v)
+        private static short ToShortAxis(float value)
         {
-            if (v > 1f) v = 1f;
-            if (v < -1f) v = -1f;
-            return (short)Math.Round(v * short.MaxValue);
+            value = Math.Clamp(value, -1f, 1f);
+            return (short)Math.Round(value * short.MaxValue);
         }
 
-        private static byte ToTrigger(float percent)
+        private static byte ToTrigger(float value)
         {
-            if (percent < 0f) percent = 0f;
-            if (percent > 100f) percent = 100f;
-            return (byte)Math.Round((percent / 100f) * 255f);
+            value = Math.Clamp(value, 0f, 1f);
+            return (byte)Math.Round(value * 255f);
         }
     }
 }

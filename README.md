@@ -21,10 +21,10 @@ Honestly, the skate early access dropped, and I didn't own a controller to play 
 * Windows 10 or 11
 * [ViGEm Bus Driver](https://github.com/nefarius/ViGEmBus/releases/latest) installed
 * PSVR2 controllers (**Bluetooth ONLY**)
+* PSVR2 controllers (Bluetooth or USB)
 * .NET 9 SDK
 
 > ViGEm must be installed for the virtual Xbox 360 controller to work.
-> USB support is not yet implemented, only Bluetooth connections are supported.
 
 ---
 
@@ -150,7 +150,6 @@ dotnet build -c Release
 * Configurable rumble mirroring and scaling
 * Controller UI for visualization and configuration  
 * Advanced haptics
-* Fix USB Support 
 
 ---
 

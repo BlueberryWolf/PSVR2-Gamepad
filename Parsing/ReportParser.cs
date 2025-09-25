@@ -1,157 +1,97 @@
-using System.Buffers.Binary;
 using PSVR2Gamepad.Models;
+using PSVR2Gamepad.Constants;
+using static PSVR2Gamepad.Constants.ParsingConstants;
+using System.Runtime.InteropServices;
 
 namespace PSVR2Gamepad.Parsing
 {
     public static class ReportParser
     {
-        // Button bit flags
-        private const uint BTN_OPTION_L = 0x000100;
-        private const uint BTN_OPTION_R = 0x000200;
-        private const uint BTN_MENU = 0x001000;
-        private const uint BTN_TRIG_L = 0x000040;
-        private const uint BTN_TRIG_R = 0x000080;
-        private const uint BTN_TRIG_T = 0x008000;
-        private const uint BTN_UPPER_L = 0x000008;
-        private const uint BTN_UPPER_R = 0x000004;
-        private const uint BTN_UPPER_T = 0x010000;
-        private const uint BTN_LOWER_L = 0x000001;
-        private const uint BTN_LOWER_R = 0x000002;
-        private const uint BTN_LOWER_T = 0x020000;
-        private const uint BTN_STICK_L = 0x000400;
-        private const uint BTN_STICK_R = 0x000800;
-        private const uint BTN_STICK_T = 0x040000;
-        private const uint BTN_GRIP_L = 0x000010;
-        private const uint BTN_GRIP_R = 0x000020;
-        private const uint BTN_GRIP_T = 0x080000;
-
         public enum Side { Left, Right }
 
-        public static PSVR2Report ParseReport(byte[] buffer, int length, Side controllerSide)
+        public static PSVR2Report? ParseReport(byte[] buffer, int length, Side controllerSide)
         {
-            var report = new PSVR2Report { ReportId = buffer[0] };
-            const int offset = 1; // Report ID offset
+            // USB reports are 64 bytes (1-byte Report ID + 63 bytes data)
+            if (length == PSVR2Constants.UsbInputReportSize)
+            {
+                // USB Report ID is 0x01, data starts at buffer[1]
+                return ParseReportData(buffer, 1, controllerSide);
+            }
+            // Bluetooth reports are 78 bytes (1-byte Report ID + 77 bytes data)
+            else if (length == PSVR2Constants.BtInputReportSize)
+            {
+                // BT Report ID is 0x31, data starts at buffer[1]
+                return ParseReportData(buffer, 1, controllerSide);
+            }
+            return null; // Or handle other report types if necessary
+        }
 
-            // Parse analog values
-            report.Stick = ParseStick(buffer, offset);
-            report.Trigger = ParseTrigger(buffer, offset);
-            report.Grip = ParseGrip(buffer, offset);
+        private static PSVR2Report ParseReportData(byte[] buffer, int offset, Side controllerSide)
+        {
+            var report = new PSVR2Report();
+            var inputOffsets = (buffer[0] == PSVR2Constants.ReportIdBt) ? (IInputReportOffsets)new PSVR2Constants.BtInputOffsets() : new PSVR2Constants.UsbInputOffsets();
 
-            // Parse digital buttons
-            uint buttons = BinaryPrimitives.ReadUInt32LittleEndian(new ReadOnlySpan<byte>(buffer, offset + 8, 4));
-            ParseButtons(report, buttons, controllerSide);
+            float stickX = (buffer[inputOffsets.StickX] - StickAxisCenter) / StickAxisMax;
+            float stickY = -(buffer[inputOffsets.StickY] - StickAxisCenter) / StickAxisMax;
+            float triggerPull = buffer[inputOffsets.TriggerPull] / TriggerMax;
+            float triggerCap = buffer[inputOffsets.TriggerCap] / TriggerMax;
+            float gripCap = buffer[inputOffsets.GripCap] / TriggerMax;
+            uint buttons = MemoryMarshal.Read<uint>(buffer.AsSpan(inputOffsets.Buttons));
+            report.Gyro = new Vector3State(X: BitConverter.ToInt16(buffer, inputOffsets.Gyro), Y: BitConverter.ToInt16(buffer, inputOffsets.Gyro + 2), Z: BitConverter.ToInt16(buffer, inputOffsets.Gyro + 4));
+            report.Accel = new Vector3State(X: BitConverter.ToInt16(buffer, inputOffsets.Accel), Y: BitConverter.ToInt16(buffer, inputOffsets.Accel + 2), Z: BitConverter.ToInt16(buffer, inputOffsets.Accel + 4));
 
-            // Parse sensor data
-            report.Gyro = ParseGyro(buffer, offset);
-            report.Accel = ParseAccel(buffer, offset);
+            if (buffer[0] == PSVR2Constants.ReportIdBt)
+            {
+                // BT Power info is in a single byte at a different location
+                byte powerByte = buffer[inputOffsets.Power];
+                int batteryLevel = (powerByte & BatteryLevelMask) * BatteryMaxLevelPercent / 8;
+                report.Power = new PowerState(
+                    BatteryLevel: (byte)Math.Clamp(batteryLevel, 0, 100),
+                    IsCharging: (powerByte & IsChargingMaskBt) != 0,
+                    IsBatteryFull: (powerByte & IsBatteryFullMask) != 0);
+            }
+            else // USB (ReportIdUsb)
+            {
+                // USB Power info is split across two bytes
+                byte battery0 = buffer[inputOffsets.Battery0];
+                byte battery1 = buffer[inputOffsets.Battery1];
+                int batteryLevel = (battery0 & BatteryLevelMask) * BatteryMaxLevelPercent / 8;
+                report.Power = new PowerState(
+                    BatteryLevel: (byte)Math.Clamp(batteryLevel, 0, 100),
+                    IsCharging: (battery1 & IsChargingMaskUsb) != 0,
+                    IsBatteryFull: (battery0 & IsBatteryFullMask) != 0);
+            }
 
-            // Parse counters and power
-            report.Counters = ParseCounters(buffer, offset);
-            report.Power = ParsePower(buffer, offset);
+            if (controllerSide == Side.Left)
+            {
+                report.Triangle = report.Triangle with { Click = (buttons & PSVR2Constants.MaskTriangle) != 0 };
+                report.Square = report.Square with { Click = (buttons & PSVR2Constants.MaskSquare) != 0 };
+                report.Option = report.Option with { Click = (buttons & PSVR2Constants.MaskCreate) != 0 };
+                report.Menu = report.Menu with { Click = (buttons & PSVR2Constants.MaskHome) != 0 };
+                report.Trigger = report.Trigger with { Click = (buttons & PSVR2Constants.MaskL2) != 0 };
+                report.Stick = report.Stick with { Click = (buttons & PSVR2Constants.MaskL3) != 0 };
+                report.Grip = report.Grip with { Click = (buttons & PSVR2Constants.MaskL1) != 0 };
+                report.Triangle = report.Triangle with { Touch = (buttons & PSVR2Constants.TouchUpper) != 0 };
+                report.Square = report.Square with { Touch = (buttons & PSVR2Constants.TouchLower) != 0 };
+            }
+            else // Right
+            {
+                report.Circle = report.Circle with { Click = (buttons & PSVR2Constants.MaskCircle) != 0 };
+                report.Cross = report.Cross with { Click = (buttons & PSVR2Constants.MaskCross) != 0 };
+                report.Option = report.Option with { Click = (buttons & PSVR2Constants.MaskOptions) != 0 };
+                report.Trigger = report.Trigger with { Click = (buttons & PSVR2Constants.MaskR2) != 0 };
+                report.Stick = report.Stick with { Click = (buttons & PSVR2Constants.MaskR3) != 0 };
+                report.Grip = report.Grip with { Click = (buttons & PSVR2Constants.MaskR1) != 0 };
+                report.Circle = report.Circle with { Touch = (buttons & PSVR2Constants.TouchUpper) != 0 };
+                report.Cross = report.Cross with { Touch = (buttons & PSVR2Constants.TouchLower) != 0 };
+            }
+
+            report.Menu = report.Menu with { Click = (buttons & PSVR2Constants.MaskHome) != 0 };
+            report.Trigger = report.Trigger with { PullPercent = triggerPull, CapPercent = triggerCap, Touch = (buttons & PSVR2Constants.TouchTrigger) != 0 };
+            report.Stick = report.Stick with { X = stickX, Y = stickY, Touch = (buttons & PSVR2Constants.TouchStick) != 0 };
+            report.Grip = report.Grip with { CapPercent = gripCap, Touch = (buttons & PSVR2Constants.TouchGrip) != 0 };
 
             return report;
-        }
-
-        private static (float x, float y) ParseStick(byte[] buffer, int offset)
-        {
-            return (
-                x: ((buffer[offset + 1] * 10f) - 1275f) / 1275f,
-                y: ((buffer[offset + 2] * 10f) - 1275f) / 1275f
-            );
-        }
-
-        private static (float pullPercent, float capPercent, bool click, bool touch) ParseTrigger(byte[] buffer, int offset)
-        {
-            return (
-                pullPercent: (buffer[offset + 3] * 100f) / 255f,
-                capPercent: (buffer[offset + 4] * 100f) / 255f,
-                click: false, // Updated later in ParseButtons
-                touch: false  // Updated later in ParseButtons
-            );
-        }
-
-        private static (float capPercent, bool click, bool touch) ParseGrip(byte[] buffer, int offset)
-        {
-            return (
-                capPercent: (buffer[offset + 5] * 100f) / 255f,
-                click: false, // Updated later in ParseButtons
-                touch: false  // Updated later in ParseButtons
-            );
-        }
-
-        private static void ParseButtons(PSVR2Report report, uint buttons, Side controllerSide)
-        {
-            bool isLeft = controllerSide == Side.Left;
-
-            // Option and Menu buttons
-            report.Option = isLeft ? (buttons & BTN_OPTION_L) != 0 : (buttons & BTN_OPTION_R) != 0;
-            report.Menu = (buttons & BTN_MENU) != 0;
-
-            // Update trigger with click/touch states
-            bool trigClick = isLeft ? (buttons & BTN_TRIG_L) != 0 : (buttons & BTN_TRIG_R) != 0;
-            report.Trigger = (report.Trigger.pullPercent, report.Trigger.capPercent, trigClick, (buttons & BTN_TRIG_T) != 0);
-
-            // Update grip with click/touch states
-            bool gripClick = isLeft ? (buttons & BTN_GRIP_L) != 0 : (buttons & BTN_GRIP_R) != 0;
-            report.Grip = (report.Grip.capPercent, gripClick, (buttons & BTN_GRIP_T) != 0);
-
-            // Face buttons
-            bool upperClick = isLeft ? (buttons & BTN_UPPER_L) != 0 : (buttons & BTN_UPPER_R) != 0;
-            bool lowerClick = isLeft ? (buttons & BTN_LOWER_L) != 0 : (buttons & BTN_LOWER_R) != 0;
-
-            if (isLeft)
-            {
-                report.Triangle = (upperClick, (buttons & BTN_UPPER_T) != 0);
-                report.Square = (lowerClick, (buttons & BTN_LOWER_T) != 0);
-            }
-            else
-            {
-                report.Circle = (upperClick, (buttons & BTN_UPPER_T) != 0);
-                report.Cross = (lowerClick, (buttons & BTN_LOWER_T) != 0);
-            }
-
-            // Stick button
-            bool stickClick = isLeft ? (buttons & BTN_STICK_L) != 0 : (buttons & BTN_STICK_R) != 0;
-            report.StickBtn = (stickClick, (buttons & BTN_STICK_T) != 0);
-        }
-
-        private static (short x, short y, short z) ParseGyro(byte[] buffer, int offset)
-        {
-            return (
-                x: (short)BinaryPrimitives.ReadInt16LittleEndian(new ReadOnlySpan<byte>(buffer, offset + 16, 2)),
-                y: (short)BinaryPrimitives.ReadInt16LittleEndian(new ReadOnlySpan<byte>(buffer, offset + 18, 2)),
-                z: (short)BinaryPrimitives.ReadInt16LittleEndian(new ReadOnlySpan<byte>(buffer, offset + 20, 2))
-            );
-        }
-
-        private static (short x, short y, short z) ParseAccel(byte[] buffer, int offset)
-        {
-            return (
-                x: (short)BinaryPrimitives.ReadInt16LittleEndian(new ReadOnlySpan<byte>(buffer, offset + 22, 2)),
-                y: (short)BinaryPrimitives.ReadInt16LittleEndian(new ReadOnlySpan<byte>(buffer, offset + 24, 2)),
-                z: (short)BinaryPrimitives.ReadInt16LittleEndian(new ReadOnlySpan<byte>(buffer, offset + 26, 2))
-            );
-        }
-
-        private static (uint powerOn, uint timestamp1, uint timestamp2) ParseCounters(byte[] buffer, int offset)
-        {
-            return (
-                powerOn: BinaryPrimitives.ReadUInt32LittleEndian(new ReadOnlySpan<byte>(buffer, offset + 12, 4)),
-                timestamp1: BinaryPrimitives.ReadUInt32LittleEndian(new ReadOnlySpan<byte>(buffer, offset + 28, 4)),
-                timestamp2: BinaryPrimitives.ReadUInt32LittleEndian(new ReadOnlySpan<byte>(buffer, offset + 48, 4))
-            );
-        }
-
-        private static (bool pluggedIn, bool charging, bool charged, int batteryPercent) ParsePower(byte[] buffer, int offset)
-        {
-            byte pwrFlags = buffer[offset + 42];
-            byte pwrConn = buffer[offset + 43];
-            return (
-                pluggedIn: (pwrConn & 0x10) != 0,
-                charging: (pwrFlags & 0x10) != 0,
-                charged: (pwrFlags & 0x20) != 0,
-                batteryPercent: ((pwrFlags & 0x0F) * 11) + 1
-            );
         }
     }
 }

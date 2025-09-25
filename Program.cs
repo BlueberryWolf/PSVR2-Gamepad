@@ -1,4 +1,4 @@
-﻿using HidSharp;
+﻿﻿using HidSharp;
 using PSVR2Gamepad.Constants;
 using PSVR2Gamepad.Hardware;
 using PSVR2Gamepad.Bridge;
@@ -10,6 +10,9 @@ namespace PSVR2Gamepad
 {
     public class Program
     {
+        private const string LeftSide = "L";
+        private const string RightSide = "R";
+
         static void Main()
         {
             Config.ConfigLoader.ApplyFromJson();
@@ -38,63 +41,76 @@ namespace PSVR2Gamepad
             // Keep the app alive until Ctrl+C
             while (!cts.IsCancellationRequested)
             {
-                Thread.Sleep(100);
+                Thread.Sleep(Tuning.MainLoopIntervalMs);
             }
 
             // Cleanup
-            try { leftController?.Stop(); } catch { }
-            try { rightController?.Stop(); } catch { }
-            try { leftController?.Dispose(); } catch { }
-            try { rightController?.Dispose(); } catch { }
+            DisposeController(leftController);
+            DisposeController(rightController);
 
-            // Local helpers capture local variables
-            void AttachIfPresent()
+            // Local helper captures local variables
+            async void AttachIfPresent()
             {
-                var leftDevice = deviceList.GetHidDeviceOrNull(PSVR2Constants.VidSony, PSVR2Constants.PidLeft);
-                var rightDevice = deviceList.GetHidDeviceOrNull(PSVR2Constants.VidSony, PSVR2Constants.PidRight);
-
-                // Attach left if newly found
-                if (leftDevice != null && leftController == null)
+                try
                 {
-                    leftController = new PSVR2Controller(ReportParser.Side.Left, leftDevice);
-                    InitializeController(leftController, "L", display, r => bridge.UpdateLeft(r));
-                    bridge.AttachLeftController(leftController);
+                    (leftController, _) = await UpdateControllerConnection(leftController, ReportParser.Side.Left, PSVR2Constants.PidLeft, LeftSide, display,
+                        r => bridge.UpdateLeft(r), c => bridge.AttachLeftController(c), () => bridge.DetachLeftController()).ConfigureAwait(false);
+
+                    (rightController, _) = await UpdateControllerConnection(rightController, ReportParser.Side.Right, PSVR2Constants.PidRight, RightSide, display,
+                        r => bridge.UpdateRight(r), c => bridge.AttachRightController(c), () => bridge.DetachRightController()).ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    display.UpdateLine("SYS", $"Error during device attach: {ex.Message}");
                 }
 
-                // Attach right if newly found
-                if (rightDevice != null && rightController == null)
+                // If both are still missing, provide guidance.
+                if (leftController == null && rightController == null)
                 {
-                    rightController = new PSVR2Controller(ReportParser.Side.Right, rightDevice);
-                    InitializeController(rightController, "R", display, r => bridge.UpdateRight(r));
-                    bridge.AttachRightController(rightController);
-                }
-
-                // Detach left if missing now
-                if (leftDevice == null && leftController != null)
-                {
-                    display.UpdateLine("L", "L controller disconnected.");
-                    try { leftController.Stop(); } catch { }
-                    try { leftController.Dispose(); } catch { }
-                    leftController = null;
-                    bridge.DetachLeftController();
-                }
-
-                // Detach right if missing now
-                if (rightDevice == null && rightController != null)
-                {
-                    display.UpdateLine("R", "R controller disconnected.");
-                    try { rightController.Stop(); } catch { }
-                    try { rightController.Dispose(); } catch { }
-                    rightController = null;
-                    bridge.DetachRightController();
-                }
-
-                // If both are missing and none were connected before, provide guidance
-                if (leftDevice == null && rightDevice == null && leftController == null && rightController == null)
-                {
-                    display.UpdateLine("L", "No controllers found. Pair via Bluetooth, leave app running.");
+                    display.UpdateLine("SYS", "No controllers found. Connect via USB or Bluetooth.");
+                    display.UpdateLine("L", "Left controller not found.");
+                    display.UpdateLine("R", "Right controller not found.");
                 }
             }
+        }
+
+        private static async Task<(PSVR2Controller? controller, bool changed)> UpdateControllerConnection(
+            PSVR2Controller? controller,
+            ReportParser.Side side,
+            int productId,
+            string sideLabel,
+            ConsoleDisplay display,
+            Action<PSVR2Report> updateAction,
+            Action<PSVR2Controller> attachAction,
+            Action detachAction)
+        {
+            var device = await Task.Run(() => DeviceList.Local.GetHidDeviceOrNull(PSVR2Constants.VidSony, productId)).ConfigureAwait(false);
+
+            // Attach if newly found
+            if (device != null && controller == null)
+            {
+                controller = await Task.Run(() =>
+                {
+                    var newCtrl = new PSVR2Controller(side, device);
+                    InitializeController(newCtrl, sideLabel, display, updateAction);
+                    attachAction(newCtrl);
+                    return newCtrl;
+                });
+
+                return (controller, true);
+            }
+
+            if (device == null && controller != null)
+            {
+                display.UpdateLine(sideLabel, $"{sideLabel} controller disconnected.");
+                DisposeController(controller);
+                controller = null;
+                detachAction();
+                return (null, true);
+            }
+
+            // Return the controller (either the original or null if detached)
+            return (controller, false);
         }
 
         private static void InitializeController(
@@ -121,6 +137,16 @@ namespace PSVR2Gamepad
             {
                 display.UpdateLine(side, $"Failed to open {side} controller.");
             }
+        }
+
+        private static void DisposeController(PSVR2Controller? controller)
+        {
+            if (controller == null) return;
+            try { controller.Stop(); }
+            catch { /* ignored */ }
+
+            try { controller.Dispose(); }
+            catch { /* ignored */ }
         }
     }
 }

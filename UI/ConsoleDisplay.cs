@@ -1,4 +1,5 @@
 using PSVR2Gamepad.Models;
+using System.Text;
 
 namespace PSVR2Gamepad.UI
 {
@@ -9,17 +10,16 @@ namespace PSVR2Gamepad.UI
 
         private int _lineL = -1;
         private int _lineR = -1;
-        private int _promptLine = -1;
         private DateTime _lastPrintL = DateTime.MinValue;
         private DateTime _lastPrintR = DateTime.MinValue;
 
         public void Initialize()
         {
             Console.Clear();
+            Console.CursorVisible = false;
             Console.WriteLine("PSVR2 Gamepad: looking for controllers...");
             _lineL = Console.CursorTop; Console.WriteLine("L: waiting...");
             _lineR = Console.CursorTop; Console.WriteLine("R: waiting...");
-            _promptLine = Console.CursorTop; Console.WriteLine("Press Enter to quit...");
         }
 
         public void UpdateLine(string side, string text)
@@ -37,14 +37,11 @@ namespace PSVR2Gamepad.UI
                 if (text.Length >= width) text = text.Substring(0, width - 1);
                 text = text.PadRight(width - 1, ' ');
 
-                var (curLeft, curTop) = Console.GetCursorPosition();
+                var originalPos = Console.GetCursorPosition();
 
                 Console.SetCursorPosition(0, targetLine);
                 Console.Write(text);
-
-                Console.SetCursorPosition(0, _promptLine);
-                Console.Write("Press Enter to quit...");
-                Console.SetCursorPosition(curLeft, curTop);
+                Console.SetCursorPosition(originalPos.Left, originalPos.Top);
             }
         }
 
@@ -63,37 +60,35 @@ namespace PSVR2Gamepad.UI
 
         private static string FormatReport(string side, PSVR2Report r)
         {
-            string upperBtn, lowerBtn;
+            var sb = new StringBuilder();
+            sb.Append($"{side} | ");
+            sb.Append($"Stick({r.Stick.X:+0.00;-0.00; 0.00},{r.Stick.Y:+0.00;-0.00; 0.00}) ");
+            sb.Append($"Trig({FmtPct(r.Trigger.PullPercent)} cap {FmtPct(r.Trigger.CapPercent)}|C{Bt(r.Trigger.Click)} T{Bt(r.Trigger.Touch)}) ");
+            sb.Append($"Grip(cap {FmtPct(r.Grip.CapPercent)}|C{Bt(r.Grip.Click)} T{Bt(r.Grip.Touch)}) ");
 
             if (side == "L")
             {
-                upperBtn = $"Triangle(C{Bt(r.Triangle.click)} T{Bt(r.Triangle.touch)})";
-                lowerBtn = $"Square(C{Bt(r.Square.click)} T{Bt(r.Square.touch)})";
+                sb.Append($"Tri(C{Bt(r.Triangle.Click)} T{Bt(r.Triangle.Touch)}) ");
+                sb.Append($"Sqr(C{Bt(r.Square.Click)} T{Bt(r.Square.Touch)}) ");
             }
             else
             {
-                upperBtn = $"Circle(C{Bt(r.Circle.click)} T{Bt(r.Circle.touch)})";
-                lowerBtn = $"Cross(C{Bt(r.Cross.click)} T{Bt(r.Cross.touch)})";
+                sb.Append($"Cir(C{Bt(r.Circle.Click)} T{Bt(r.Circle.Touch)}) ");
+                sb.Append($"Crs(C{Bt(r.Cross.Click)} T{Bt(r.Cross.Touch)}) ");
             }
 
-            return $"{side} | " +
-                   $"Stick({r.Stick.x:F2},{r.Stick.y:F2}) " +
-                   $"Trig({r.Trigger.pullPercent:F0}% cap {r.Trigger.capPercent:F0}%|C{Bt(r.Trigger.click)} T{Bt(r.Trigger.touch)}) " +
-                   $"Grip(cap {r.Grip.capPercent:F0}%|C{Bt(r.Grip.click)} T{Bt(r.Grip.touch)}) " +
-                   $"{upperBtn} {lowerBtn} " +
-                   $"S(C{Bt(r.StickBtn.click)} T{Bt(r.StickBtn.touch)}) " +
-                   $"Opt({Bt(r.Option)}) Menu({Bt(r.Menu)}) " +
-                   $"Gyro({r.Gyro.x},{r.Gyro.y},{r.Gyro.z}) " +
-                   $"Accel({r.Accel.x},{r.Accel.y},{r.Accel.z}) " +
-                   $"Pwr({r.Power.batteryPercent}% Chg:{Bt(r.Power.charging)} Full:{Bt(r.Power.charged)} Plug:{Bt(r.Power.pluggedIn)})";
+            sb.Append($"S(C{Bt(r.Stick.Click)} T{Bt(r.Stick.Touch)}) ");
+            sb.Append($"Opt({Bt(r.Option.Click)}) Menu({Bt(r.Menu.Click)}) ");
+            sb.Append($"Gyro({r.Gyro.X,6},{r.Gyro.Y,6},{r.Gyro.Z,6}) ");
+            sb.Append($"Accel({r.Accel.X,6},{r.Accel.Y,6},{r.Accel.Z,6}) ");
+            sb.Append($"Pwr({r.Power.BatteryLevel}% Chg:{Bt(r.Power.IsCharging)} Full:{Bt(r.Power.IsBatteryFull)})");
+
+            return sb.ToString();
         }
 
         private static string Bt(bool value) => value ? "1" : "0";
 
-        public void WaitForExit()
-        {
-            Console.SetCursorPosition(0, _promptLine);
-            Console.ReadLine();
-        }
+        private static string FmtPct(float value) =>
+            $"{Math.Round(value * 100),3}%";
     }
 }

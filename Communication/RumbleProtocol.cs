@@ -1,5 +1,24 @@
 namespace PSVR2Gamepad.Communication
 {
+    internal static class RumbleFlags
+    {
+        public const byte ValidFlag0_CompatibleVibration = 0x01;
+        public const byte ValidFlag0_HapticsSelect = 0x02;
+        public const byte ValidFlag2_LightbarSetupControlEnable = 0x02;
+        public const byte LightbarSetup_EnableLeds = 0x02;
+        public const byte BtTag = 0x10;
+        public const byte BtCrcSeed = 0xA2;
+
+        // USB Output Report (0x02) Field Offsets (relative to payload start)
+        public const int UsbOffsetLightbarFlag = 39;
+        public const int UsbOffsetLightbarSetup = 41;
+
+        // Bluetooth Output Report (0x31) Field Offsets (relative to payload start)
+        // The "common" block in BT reports is offset by 2 bytes (seq_tag, tag)
+        public const int BtOffsetLightbarFlag = 2 + 39;
+        public const int BtOffsetLightbarSetup = 2 + 41;
+    }
+
     public static class RumbleProtocol
     {
         private static uint[]? _crcTable;
@@ -16,18 +35,18 @@ namespace PSVR2Gamepad.Communication
             outSeq = (byte)((outSeq + 1) & 0x0F);
 
             // tag
-            buf[1 + 1] = 0x10;
+            buf[1 + 1] = RumbleFlags.BtTag;
 
             int common = 1 + 2; // start of common block
-            buf[common + 0] = 0x03; // valid_flag0: COMPATIBLE_VIBRATION|HAPTICS_SELECT
+            buf[common + 0] = RumbleFlags.ValidFlag0_CompatibleVibration | RumbleFlags.ValidFlag0_HapticsSelect; // valid_flag0
             buf[common + 2] = strength; // DualShock 4 compatibility motor
 
             // Haptics selector bytes (set to 0)
             for (int i = 3; i <= 7; i++)
                 buf[common + i] = 0x00;
 
-            buf[common + 39] = 0x02; // valid_flag2
-            buf[common + 41] = 0x02; // lightbar enable
+            buf[RumbleFlags.BtOffsetLightbarFlag] = RumbleFlags.ValidFlag2_LightbarSetupControlEnable;
+            buf[RumbleFlags.BtOffsetLightbarSetup] = RumbleFlags.LightbarSetup_EnableLeds;
 
             FillSenseChecksum(reportId, buf, 1, payloadLen);
             return buf;
@@ -40,16 +59,14 @@ namespace PSVR2Gamepad.Communication
             var buf = new byte[1 + payloadLen];
             buf[0] = reportId;
 
-            int common = 1 + 0; // start of common block
-            buf[common + 0] = 0x03; // valid_flag0: COMPATIBLE_VIBRATION|HAPTICS_SELECT
-            buf[common + 2] = strength; // DualShock 4 compatibility motor
+            // valid_flag0: COMPATIBLE_VIBRATION
+            buf[1 + 0] = RumbleFlags.ValidFlag0_CompatibleVibration | RumbleFlags.ValidFlag0_HapticsSelect;
+            buf[1 + 2] = strength; // Right motor (DS4 - strong rumble)
+            // buf[1 + 3] is for the left motor (weak rumble), we can leave it as 0 for now.
 
-            // Haptics selector bytes (set to 0)
-            for (int i = 3; i <= 7; i++)
-                buf[common + i] = 0x00;
-
-            buf[common + 39] = 0x02; // valid_flag2
-            buf[common + 41] = 0x02; // lightbar enable
+            // valid_flag2: LIGHTBAR_SETUP_CONTROL_ENABLE is crucial for enabling rumble and extended reports on USB.
+            buf[1 + RumbleFlags.UsbOffsetLightbarFlag] = RumbleFlags.ValidFlag2_LightbarSetupControlEnable;
+            buf[1 + RumbleFlags.UsbOffsetLightbarSetup] = RumbleFlags.LightbarSetup_EnableLeds;
 
             return buf;
         }
@@ -62,8 +79,8 @@ namespace PSVR2Gamepad.Communication
             EnsureCrcTable();
             uint crc = 0xFFFFFFFFu;
 
-            // Prefix bytes required by HID over BT transport: 0xA2, reportId
-            crc = (crc >> 8) ^ _crcTable![(crc ^ 0xA2) & 0xFF];
+            // Prefix byte required by HID over BT transport
+            crc = (crc >> 8) ^ _crcTable![(crc ^ RumbleFlags.BtCrcSeed) & 0xFF];
             crc = (crc >> 8) ^ _crcTable[(crc ^ reportId) & 0xFF];
 
             for (int i = 0; i < dataLen; i++)

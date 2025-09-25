@@ -13,6 +13,7 @@ namespace PSVR2Gamepad.Constants
         public static int ReopenBackoffStartMs = 150;
         public static int ReopenBackoffMaxMs = 3000;
         public static int ConsoleMinIntervalMs = 100;
+        public static int MainLoopIntervalMs = 100;
 
         public static ThreadPriority ReaderThreadPriority = ThreadPriority.AboveNormal;
 

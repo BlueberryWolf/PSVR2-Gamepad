@@ -8,12 +8,13 @@ namespace PSVR2Gamepad.Hardware
 {
     public sealed class PSVR2Controller : IDisposable
     {
+        private const int HidBufferSize = 128;
         public ReportParser.Side ControllerSide { get; }
         public HidDevice Device { get; }
 
         private HidStream? _stream;
         private CancellationTokenSource? _cts;
-        private bool _isBluetooth;
+        private bool? _isBluetooth;
         private byte _outSeq = 1;
 
         public PSVR2Controller(ReportParser.Side side, HidDevice device)
@@ -26,13 +27,11 @@ namespace PSVR2Gamepad.Hardware
         {
             if (_stream?.CanWrite != true) return;
 
-            try
+            try // WriteTimeout is set in Open() and TryReopenWithBackoff().
             {
-                if (_stream.WriteTimeout == 0) _stream.WriteTimeout = Tuning.WriteTimeoutMs;
-
                 DetectConnectionTypeIfNeeded();
 
-                byte[] packet = _isBluetooth
+                byte[] packet = _isBluetooth == true
                     ? RumbleProtocol.CreateBluetoothRumblePacket(strength, ref _outSeq)
                     : RumbleProtocol.CreateUsbRumblePacket(strength);
 
@@ -47,14 +46,14 @@ namespace PSVR2Gamepad.Hardware
 
         private void DetectConnectionTypeIfNeeded()
         {
-            if (_isBluetooth) return;
+            if (_isBluetooth.HasValue) return;
 
             try
             {
                 int maxOut = Device.GetMaxOutputReportLength();
-                _isBluetooth = maxOut >= 78;
+                _isBluetooth = maxOut >= PSVR2Constants.BtOutputReportSize;
             }
-            catch { _isBluetooth = false; }
+            catch { _isBluetooth = false; } // Default to USB if detection fails
         }
 
         public bool Open()
@@ -74,9 +73,13 @@ namespace PSVR2Gamepad.Hardware
 
         private void TryInitializeDevice()
         {
+            // This feature report is only necessary for Bluetooth to enable the 0x31 input reports.
+            // Sending it on USB can cause a delay or timeout as the device doesn't use it.
+            if (_isBluetooth != true) return;
+
             try
             {
-                var feat = new byte[64];
+                var feat = new byte[HidBufferSize];
                 feat[0] = PSVR2Constants.FeatureReportIdEnable;
                 _stream?.GetFeature(feat);
             }
@@ -101,7 +104,7 @@ namespace PSVR2Gamepad.Hardware
 
         private void ReadLoop(Action<PSVR2Report> onReport, Action<Exception> onError, CancellationToken token)
         {
-            var buffer = new byte[128];
+            var buffer = new byte[HidBufferSize];
             var lastDataUtc = DateTime.UtcNow;
 
             while (!token.IsCancellationRequested)
@@ -112,17 +115,11 @@ namespace PSVR2Gamepad.Hardware
 
                     if (length <= 0)
                     {
-                        // Timeout or no data
-                        if ((DateTime.UtcNow - lastDataUtc).TotalMilliseconds > Tuning.WatchdogStaleMs)
-                        {
-                            // Treat as stale link; try reopen
-                            if (!TryReopenWithBackoff(token)) break;
-                            lastDataUtc = DateTime.UtcNow;
-                        }
-                        continue;
+                        // A zero-length read indicates a timeout. Fall through to the TimeoutException handler.
+                        throw new TimeoutException("Read timed out.");
                     }
 
-                    if (buffer[0] != PSVR2Constants.ReportId)
+                    if (buffer[0] != PSVR2Constants.ReportIdUsb && buffer[0] != PSVR2Constants.ReportIdBt)
                     {
                         // Ignore unrelated report IDs
                         continue;
@@ -130,7 +127,7 @@ namespace PSVR2Gamepad.Hardware
 
                     lastDataUtc = DateTime.UtcNow;
                     var report = ReportParser.ParseReport(buffer, length, ControllerSide);
-                    onReport?.Invoke(report);
+                    if (report != null) onReport?.Invoke(report);
                 }
                 catch (OperationCanceledException)
                 {
@@ -138,13 +135,12 @@ namespace PSVR2Gamepad.Hardware
                 }
                 catch (TimeoutException)
                 {
-                    // Non-fatal: check watchdog for stale
+                    // Non-fatal: check watchdog for stale connection.
                     if ((DateTime.UtcNow - lastDataUtc).TotalMilliseconds > Tuning.WatchdogStaleMs)
                     {
                         if (!TryReopenWithBackoff(token)) break;
                         lastDataUtc = DateTime.UtcNow;
                     }
-                    continue;
                 }
                 catch (Exception ex)
                 {
@@ -174,8 +170,8 @@ namespace PSVR2Gamepad.Hardware
                 {
                     if (Device.TryOpen(out _stream))
                     {
-                        _stream.ReadTimeout = 100;
-                        _stream.WriteTimeout = 50;
+                        _stream.ReadTimeout = Tuning.ReadTimeoutMs;
+                        _stream.WriteTimeout = Tuning.WriteTimeoutMs;
                         DetectConnectionTypeIfNeeded();
                         TryInitializeDevice();
                         return true;
