@@ -67,10 +67,10 @@ namespace PSVR2Gamepad.Mapping
 
             // Back / Start 
             controller.SetButtonState(Xbox360Button.Back, left?.Option.Click == true);
-            controller.SetButtonState(Xbox360Button.Start, (right?.Option.Click == true));
+            controller.SetButtonState(Xbox360Button.Start, right?.Option.Click == true);
 
             // Guide from RIGHT menu
-            controller.SetButtonState(Xbox360Button.Guide, (right?.Menu.Click == true));
+            controller.SetButtonState(Xbox360Button.Guide, right?.Menu.Click == true);
 
             // Stick buttons
             controller.SetButtonState(Xbox360Button.LeftThumb, left?.Stick.Click == true);

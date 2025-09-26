@@ -1,4 +1,5 @@
 using PSVR2Gamepad.Models;
+using System.Reflection;
 using System.Text;
 
 namespace PSVR2Gamepad.UI
@@ -17,7 +18,8 @@ namespace PSVR2Gamepad.UI
         {
             Console.Clear();
             Console.CursorVisible = false;
-            Console.WriteLine("PSVR2 Gamepad: looking for controllers...");
+            var version = Assembly.GetExecutingAssembly().GetName().Version;
+            Console.WriteLine($"PSVR2 Gamepad v{version?.ToString(3) ?? "0.0.0"}: looking for controllers...");
             _lineL = Console.CursorTop; Console.WriteLine("L: waiting...");
             _lineR = Console.CursorTop; Console.WriteLine("R: waiting...");
         }
@@ -42,6 +44,24 @@ namespace PSVR2Gamepad.UI
                 Console.SetCursorPosition(0, targetLine);
                 Console.Write(text);
                 Console.SetCursorPosition(originalPos.Left, originalPos.Top);
+            }
+        }
+
+        public void PrintUpdateMessage(string message, string? linkText = null, string? url = null)
+        {
+            lock (_consoleLock)
+            {
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.Write(message);
+
+                if (!string.IsNullOrEmpty(linkText) && !string.IsNullOrEmpty(url))
+                {
+                    // ANSI escape sequence for hyperlink
+                    Console.Write($"\x1B]8;;{url}\x07{linkText}\x1B]8;;\x07");
+                }
+
+                Console.WriteLine(); // Newline
+                Console.ResetColor();
             }
         }
 

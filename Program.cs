@@ -5,6 +5,7 @@ using PSVR2Gamepad.Bridge;
 using PSVR2Gamepad.UI;
 using PSVR2Gamepad.Parsing;
 using PSVR2Gamepad.Models;
+using PSVR2Gamepad.Update;
 
 namespace PSVR2Gamepad
 {
@@ -13,12 +14,20 @@ namespace PSVR2Gamepad
         private const string LeftSide = "L";
         private const string RightSide = "R";
 
-        static void Main()
+        static async Task Main()
         {
             Config.ConfigLoader.ApplyFromJson();
 
             var display = new ConsoleDisplay();
             display.Initialize();
+
+            const string releasesUrl = "https://github.com/BlueberryWolf/PSVR2-Gamepad/releases/latest";
+            // Asynchronously check for updates on startup.
+            var (updateAvailable, newVersion) = await UpdateChecker.CheckForUpdatesAsync().ConfigureAwait(false);
+            if (updateAvailable)
+            {
+                display.PrintUpdateMessage($"A new version ({newVersion}) is available! Download from: ", releasesUrl, releasesUrl);
+            }
 
             using var bridge = new ViGEmBridge();
             var deviceList = DeviceList.Local;

@@ -6,6 +6,7 @@
     <RootNamespace>PSVR2Gamepad</RootNamespace>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <Version>0.2.0</Version>
   </PropertyGroup>
 
   <ItemGroup>
@@ -13,10 +14,10 @@
     <PackageReference Include="Nefarius.ViGEm.Client" Version="1.21.256" />
   </ItemGroup>
 
-    <ItemGroup>
-      <None Update="psvr2-gamepad.config.json">
-        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      </None>
-    </ItemGroup>
+  <ItemGroup>
+    <None Update="psvr2-gamepad.config.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
 
 </Project>
