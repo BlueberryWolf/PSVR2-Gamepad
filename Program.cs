@@ -6,6 +6,7 @@ using PSVR2Gamepad.UI;
 using PSVR2Gamepad.Parsing;
 using PSVR2Gamepad.Models;
 using PSVR2Gamepad.Update;
+using Nefarius.ViGEm.Client.Exceptions;
 
 namespace PSVR2Gamepad
 {
@@ -29,14 +30,30 @@ namespace PSVR2Gamepad
                 display.PrintUpdateMessage($"A new version ({newVersion}) is available! Download from: ", releasesUrl, releasesUrl);
             }
 
-            using var bridge = new ViGEmBridge();
+            ViGEmBridge? bridge = null;
+            try
+            {
+                bridge = new ViGEmBridge();
+            }
+            catch (VigemBusNotFoundException)
+            {
+                const string vigemUrl = "https://github.com/nefarius/ViGEmBus/releases/latest";
+                display.PrintError("ViGEmBus driver not found. This is required for virtual controller emulation.");
+                display.PrintMessage("Please install it from: ", vigemUrl, vigemUrl);
+                display.PrintMessage("\nPress any key to exit...");
+                Console.ReadKey();
+                return;
+            }
+
+            PSVR2Controller? leftController = null;
+            PSVR2Controller? rightController = null;
+
+            using (bridge)
+            {
             var deviceList = DeviceList.Local;
 
             var cts = new CancellationTokenSource();
             Console.CancelKeyPress += (s, e) => { e.Cancel = true; cts.Cancel(); };
-
-            PSVR2Controller? leftController = null;
-            PSVR2Controller? rightController = null;
 
             // Initial attach if devices are present
             AttachIfPresent();
@@ -51,6 +68,7 @@ namespace PSVR2Gamepad
             while (!cts.IsCancellationRequested)
             {
                 Thread.Sleep(Tuning.MainLoopIntervalMs);
+            }
             }
 
             // Cleanup

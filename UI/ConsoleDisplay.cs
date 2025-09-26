@@ -47,6 +47,28 @@ namespace PSVR2Gamepad.UI
             }
         }
 
+        public void PrintError(string message)
+        {
+            lock (_consoleLock)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine(message);
+                Console.ResetColor();
+            }
+        }
+
+        public void PrintMessage(string message, string? linkText = null, string? url = null)
+        {
+            lock (_consoleLock)
+            {
+                Console.Write(message);
+                if (!string.IsNullOrEmpty(linkText) && !string.IsNullOrEmpty(url))
+                {
+                    Console.Write($"\x1B]8;;{url}\x07{linkText}\x1B]8;;\x07");
+                }
+            }
+        }
+
         public void PrintUpdateMessage(string message, string? linkText = null, string? url = null)
         {
             lock (_consoleLock)
