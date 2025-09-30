@@ -20,7 +20,6 @@ Honestly, the skate early access dropped, and I didn't own a controller to play 
 
 * Windows 10 or 11
 * [ViGEm Bus Driver](https://github.com/nefarius/ViGEmBus/releases/latest) installed
-* PSVR2 controllers (**Bluetooth ONLY**)
 * PSVR2 controllers (Bluetooth or USB)
 * .NET 9 SDK
 
@@ -102,8 +101,8 @@ dotnet build -c Release
 
 
 * **No virtual controller?** Make sure ViGEm Bus Driver is installed and app is running
-* **No PSVR2 detected?** Pair via Bluetooth, then try again
-* **No rumble on Bluetooth?** Check connection and try a test app (Steam or XInput tester)
+* **No PSVR2 detected?** Pair via bluetooth, or re-plug then try again
+* **No rumble?** Check connection and try a test app (Steam or XInput tester)
 * **Opening the app tries to open ms-gamebar** This is a windows feature, Game Bar is opened when an XInput device is detected. You can disable the gamebar entirely [here](https://github.com/AveYo/Gaming/blob/main/ms-gamebar-annoyance.bat)
 
 ---
