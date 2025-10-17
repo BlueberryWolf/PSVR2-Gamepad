@@ -2,6 +2,9 @@ namespace PSVR2Gamepad.Config
 {
     public sealed class TuningConfig
     {
+        // Controller Emulation
+        public string? VirtualController { get; set; }
+
         // Features
         public bool? FakeDpadEnabled { get; set; }
         public float? FakeDpadThreshold { get; set; }

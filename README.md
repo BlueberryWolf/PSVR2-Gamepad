@@ -1,6 +1,6 @@
 # PSVR2-Gamepad
 
-A small Windows app that lets your PSVR2 Sense controllers act like a single Xbox 360 controller. It reads the inputs via HidSharp and sends them to a virtual Xbox controller using ViGEm.
+A small Windows app that lets your PSVR2 Sense controllers act like a single DualShock 4 or Xbox 360 controller. It reads the inputs via HidSharp and sends them to a virtual gamepad using ViGEm.
 
 Think of it as a bridge so your PSVR2 controllers can work in pretty much any game that supports XInput.
 
@@ -64,6 +64,22 @@ dotnet build -c Release
 
 ---
 
+## Controller Emulation Type (DS4 / Xbox 360)
+
+By default, the app emulates a **DualShock 4 (DS4)** controller. You can switch to **Xbox 360** emulation by creating a configuration file.
+
+1.  Create a file named `psvr2-gamepad.config.json` in the same directory as `PSVR2-Gamepad.exe`.
+2.  Add the following content to the file:
+
+```json
+{
+  "VirtualController": "Xbox360"
+}
+```
+
+If the file is missing or the value is anything other than `Xbox360`, it will default to `DS4`.
+
+---
 ## Button / Stick Mapping (to Xbox 360/XInput)
 
 * **Sticks (LS/RS)**: left/right
@@ -74,6 +90,20 @@ dotnet build -c Release
 * **Start**: right Option
 * **Guide**: right Menu
 * **Stick click**: LS/RS press
+* **D-Pad**: optional Fake D-Pad from left stick (toggle with left PS Button/Menu)
+
+---
+
+## Button / Stick Mapping (to DualShock 4)
+
+* **Sticks (LS/RS)**: left/right
+* **Triggers (L2/R2)**: trigger pull
+* **Grips (L1/R1)**: left/right grip click
+* **Face buttons (Cross, Circle, Square, Triangle)**: mapped 1:1
+* **Share**: left Option
+* **Options**: right Option
+* **PS Button**: right Menu
+* **Stick click (L3/R3)**: LS/RS press
 * **D-Pad**: optional Fake D-Pad from left stick (toggle with left PS Button/Menu)
 
 ---
@@ -127,6 +157,8 @@ dotnet build -c Release
 
 * `Models/PSVR2Report.cs`: strongly-typed controller state
 
+* `Mapping/DS4Mapping.cs`: map PSVR2 state to DS4 buttons/axes
+
 * `Mapping/Xbox360Mapping.cs`: map PSVR2 state to Xbox 360 buttons/axes
 
 * `Features/FakeDpad.cs`: dominant-axis D-Pad from left stick
@@ -136,6 +168,12 @@ dotnet build -c Release
 * `Constants/PSVR2Constants.cs`: vendor/product IDs, report IDs, sizes, bit masks
 
 * `UI/ConsoleDisplay.cs`: console HUD and runtime status
+
+* `Bridge/BridgeConfig.cs`: configuration for virtual controller type
+
+* `Bridge/IVirtualGamepad.cs`: interface for virtual controllers
+* `Bridge/DS4VirtualGamepad.cs`: DS4 implementation
+* `Bridge/Xbox360VirtualGamepad.cs`: Xbox 360 implementation
 
 * `PSVR2-Gamepad.csproj`: project metadata and NuGet dependencies
 

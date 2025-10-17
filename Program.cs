@@ -5,8 +5,10 @@ using PSVR2Gamepad.Bridge;
 using PSVR2Gamepad.UI;
 using PSVR2Gamepad.Parsing;
 using PSVR2Gamepad.Models;
-using PSVR2Gamepad.Update;
+using PSVR2Gamepad.Config;
 using Nefarius.ViGEm.Client.Exceptions;
+using PSVR2Gamepad.Update;
+using PSVR2Gamepad.Features;
 
 namespace PSVR2Gamepad
 {
@@ -17,23 +19,24 @@ namespace PSVR2Gamepad
 
         static async Task Main()
         {
-            Config.ConfigLoader.ApplyFromJson();
-
             var display = new ConsoleDisplay();
             display.Initialize();
 
             const string releasesUrl = "https://github.com/BlueberryWolf/PSVR2-Gamepad/releases/latest";
             // Asynchronously check for updates on startup.
             var (updateAvailable, newVersion) = await UpdateChecker.CheckForUpdatesAsync().ConfigureAwait(false);
-            if (updateAvailable)
+            if (updateAvailable && newVersion is not null)
             {
-                display.PrintUpdateMessage($"A new version ({newVersion}) is available! Download from: ", releasesUrl, releasesUrl);
+                display.PrintUpdateMessage($"A new version ({newVersion}) is available! Download from: ", "here", releasesUrl);
             }
+
+            var config = new BridgeConfig();
+            ConfigLoader.ApplyFromJson(config);
 
             ViGEmBridge? bridge = null;
             try
             {
-                bridge = new ViGEmBridge();
+                bridge = new ViGEmBridge(config);
             }
             catch (VigemBusNotFoundException)
             {
@@ -50,25 +53,26 @@ namespace PSVR2Gamepad
 
             using (bridge)
             {
-            var deviceList = DeviceList.Local;
+                var deviceList = DeviceList.Local;
 
-            var cts = new CancellationTokenSource();
-            Console.CancelKeyPress += (s, e) => { e.Cancel = true; cts.Cancel(); };
+                var cts = new CancellationTokenSource();
+                Console.CancelKeyPress += (s, e) => { e.Cancel = true; cts.Cancel(); };
 
-            // Initial attach if devices are present
-            AttachIfPresent();
+                // Initial attach if devices are present
+                AttachIfPresent();
 
-            // Hotplug support
-            deviceList.Changed += (s, e) =>
-            {
-                try { AttachIfPresent(); } catch { /* ignore transient errors */ }
-            };
+                // Hotplug support
+                deviceList.Changed += (s, e) =>
+                {
+                    try { AttachIfPresent(); } catch { /* ignore transient errors */ }
+                };
 
-            // Keep the app alive until Ctrl+C
-            while (!cts.IsCancellationRequested)
-            {
-                Thread.Sleep(Tuning.MainLoopIntervalMs);
-            }
+                // Keep the app alive until Ctrl+C
+                while (!cts.IsCancellationRequested)
+                {
+                    display.UpdateLine("Status", $"Fake D-Pad: {(FakeDpadConfig.Enabled ? "ON" : "OFF")} (Toggle: Left Menu)");
+                    await Task.Delay(Tuning.MainLoopIntervalMs, cts.Token).ContinueWith(_ => { });
+                }
             }
 
             // Cleanup

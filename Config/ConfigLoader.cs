@@ -1,5 +1,6 @@
 using System.Text.Json;
 using PSVR2Gamepad.Constants;
+using PSVR2Gamepad.Bridge;
 
 namespace PSVR2Gamepad.Config
 {
@@ -7,7 +8,7 @@ namespace PSVR2Gamepad.Config
     {
         private const string DefaultFileName = "psvr2-gamepad.config.json";
 
-        public static void ApplyFromJson(string? path = null)
+        public static void ApplyFromJson(BridgeConfig bridgeConfig, string? path = null)
         {
             try
             {
@@ -24,6 +25,13 @@ namespace PSVR2Gamepad.Config
                     PropertyNameCaseInsensitive = true
                 });
                 if (cfg == null) return;
+
+                // Apply virtual controller type
+                if (!string.IsNullOrWhiteSpace(cfg.VirtualController) &&
+                    Enum.TryParse<VirtualControllerType>(cfg.VirtualController, true, out var controllerType))
+                {
+                    bridgeConfig.ControllerType = controllerType;
+                }
 
                 // Apply with null checks. JSON overrides defaults only for specified values
                 if (cfg.ReadTimeoutMs.HasValue) Tuning.ReadTimeoutMs = Math.Max(1, cfg.ReadTimeoutMs.Value);

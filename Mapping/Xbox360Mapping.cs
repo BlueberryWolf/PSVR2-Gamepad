@@ -11,12 +11,10 @@ namespace PSVR2Gamepad.Mapping
     /// </summary>
     public static class Xbox360Mapping
     {
-        private static bool _prevLeftMenuDown;
-
-        public static void ApplyReport(IXbox360Controller controller, PSVR2Report left, PSVR2Report right)
+        public static void Map(PSVR2Report left, PSVR2Report right, IXbox360Controller controller, bool fakeDpad)
         {
             ApplyAnalogInputs(controller, left, right);
-            ApplyButtons(controller, left, right);
+            ApplyButtons(controller, left, right, fakeDpad);
             controller.SubmitReport();
         }
 
@@ -45,16 +43,8 @@ namespace PSVR2Gamepad.Mapping
         /// <summary>
         /// Maps digital buttons and handles Fake D-Pad toggle and output.
         /// </summary>
-        private static void ApplyButtons(IXbox360Controller controller, PSVR2Report left, PSVR2Report right)
+        private static void ApplyButtons(IXbox360Controller controller, PSVR2Report left, PSVR2Report right, bool fakeDpad)
         {
-            // Toggle Fake D-Pad with LEFT menu button (edge-triggered)
-            bool leftMenuDown = left?.Menu.Click == true;
-            if (leftMenuDown && !_prevLeftMenuDown)
-            {
-                FakeDpadConfig.Toggle();
-            }
-            _prevLeftMenuDown = leftMenuDown;
-
             // Shoulders
             controller.SetButtonState(Xbox360Button.LeftShoulder, left?.Grip.Click == true);
             controller.SetButtonState(Xbox360Button.RightShoulder, right?.Grip.Click == true);
@@ -77,7 +67,7 @@ namespace PSVR2Gamepad.Mapping
             controller.SetButtonState(Xbox360Button.RightThumb, right?.Stick.Click == true);
 
             // Fake D-Pad: map left stick to D-Pad when enabled
-            if (FakeDpadConfig.Enabled && left != null)
+            if (fakeDpad && left != null)
             {
                 bool up, down, leftDir, rightDir;
                 FakeDpad.ComputeDpadFromStick(left.Stick.X, left.Stick.Y, out up, out down, out leftDir, out rightDir);

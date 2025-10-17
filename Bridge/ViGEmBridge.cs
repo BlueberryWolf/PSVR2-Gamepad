@@ -1,36 +1,44 @@
 using Nefarius.ViGEm.Client;
-using Nefarius.ViGEm.Client.Targets;
-using Nefarius.ViGEm.Client.Targets.Xbox360;
 using PSVR2Gamepad.Models;
 using PSVR2Gamepad.Hardware;
-using PSVR2Gamepad.Mapping;
+using PSVR2Gamepad.Features;
 
 namespace PSVR2Gamepad.Bridge
 {
     public sealed class ViGEmBridge : IDisposable
     {
         private readonly ViGEmClient _client;
-        private readonly IXbox360Controller _x360;
+        private readonly IVirtualGamepad _virtualGamepad;
         private readonly object _lock = new object();
 
         private PSVR2Report? _left;
         private PSVR2Report? _right;
         private PSVR2Controller? _leftCtlRef;
         private PSVR2Controller? _rightCtlRef;
+        private bool _prevLeftMenuDown = false;
 
-        public ViGEmBridge()
+        public ViGEmBridge(BridgeConfig config)
         {
             _client = new ViGEmClient();
-            _x360 = _client.CreateXbox360Controller();
-            _x360.FeedbackReceived += OnFeedbackReceived;
-            _x360.Connect();
+
+            if (config.ControllerType == VirtualControllerType.DS4)
+            {
+                _virtualGamepad = new DS4VirtualGamepad(_client, OnFeedbackReceived);
+            }
+            else
+            {
+                _virtualGamepad = new Xbox360VirtualGamepad(_client, OnFeedbackReceived);
+            }
+
+            Console.WriteLine($"Creating virtual {config.ControllerType} controller...");
+            _virtualGamepad.Connect();
         }
 
-        private void OnFeedbackReceived(object sender, Xbox360FeedbackReceivedEventArgs e)
+        private void OnFeedbackReceived(byte largeMotor, byte smallMotor)
         {
             try
             {
-                DistributeRumble(e.LargeMotor, e.SmallMotor);
+                DistributeRumble(largeMotor, smallMotor);
             }
             catch { /* ignore transient write errors */ }
         }
@@ -63,8 +71,15 @@ namespace PSVR2Gamepad.Bridge
         {
             lock (_lock)
             {
+                bool leftMenuDown = report.Menu.Click;
+                if (leftMenuDown && !_prevLeftMenuDown)
+                {
+                    FakeDpadConfig.Toggle();
+                }
+                _prevLeftMenuDown = leftMenuDown;
+
                 _left = report;
-                Xbox360Mapping.ApplyReport(_x360, _left!, _right ?? new PSVR2Report());
+                _virtualGamepad.Update(_left, _right, FakeDpadConfig.Enabled);
             }
         }
 
@@ -73,13 +88,13 @@ namespace PSVR2Gamepad.Bridge
             lock (_lock)
             {
                 _right = report;
-                Xbox360Mapping.ApplyReport(_x360, _left ?? new PSVR2Report(), _right!);
+                _virtualGamepad.Update(_left, _right, FakeDpadConfig.Enabled);
             }
         }
 
         public void Dispose()
         {
-            try { _x360.Disconnect(); } catch { }
+            try { _virtualGamepad.Dispose(); } catch { }
             try { _client.Dispose(); } catch { }
         }
     }

@@ -11,6 +11,7 @@ namespace PSVR2Gamepad.UI
 
         private int _lineL = -1;
         private int _lineR = -1;
+        private int _lineStatus = -1;
         private DateTime _lastPrintL = DateTime.MinValue;
         private DateTime _lastPrintR = DateTime.MinValue;
 
@@ -19,16 +20,17 @@ namespace PSVR2Gamepad.UI
             Console.Clear();
             Console.CursorVisible = false;
             var version = Assembly.GetExecutingAssembly().GetName().Version;
-            Console.WriteLine($"PSVR2 Gamepad v{version?.ToString(3) ?? "0.0.0"}: looking for controllers...");
+            Console.WriteLine($"PSVR2 Gamepad v{version?.ToString(3) ?? "0.0.0"}");
             _lineL = Console.CursorTop; Console.WriteLine("L: waiting...");
             _lineR = Console.CursorTop; Console.WriteLine("R: waiting...");
+            _lineStatus = Console.CursorTop; Console.WriteLine("Status: Initializing...");
         }
 
         public void UpdateLine(string side, string text)
         {
             lock (_consoleLock)
             {
-                int targetLine = side == "L" ? _lineL : _lineR;
+                int targetLine = side == "L" ? _lineL : (side == "R" ? _lineR : _lineStatus);
                 if (targetLine < 0)
                 {
                     Console.WriteLine(text);

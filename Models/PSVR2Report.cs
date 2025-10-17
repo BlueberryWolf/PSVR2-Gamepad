@@ -20,5 +20,7 @@ namespace PSVR2Gamepad.Models
         public Vector3State Gyro { get; set; } = new(0, 0, 0);
         public Vector3State Accel { get; set; } = new(0, 0, 0);
         public PowerState Power { get; set; } = new(0, false, false);
+
+        public static PSVR2Report Empty { get; } = new PSVR2Report();
     }
 }

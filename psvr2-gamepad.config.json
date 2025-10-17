@@ -7,5 +7,6 @@
   "ConsoleMinIntervalMs": 100,
   "ReaderThreadPriority": "AboveNormal",
   "FakeDpadEnabled": false,
-  "FakeDpadThreshold": 0.5
+  "FakeDpadThreshold": 0.5,
+  "VirtualController": "DS4"
 }
